@@ -196,4 +196,51 @@ final class TemporaryScheduleOverrideHistoryTests: XCTestCase {
         let expected = basalRateSchedule
         XCTAssert(historyResolves(to: expected))
     }
+
+    func testMultiDayOverride() {
+        recordOverride(beginningAt: .hours(2), duration: .finite(.hours(68)), insulinNeedsScaleFactor: 1.5)
+
+        let expected = BasalRateSchedule(dailyItems: [
+            RepeatingScheduleValue(startTime: .hours(0), value: 1.8),
+            RepeatingScheduleValue(startTime: .hours(6), value: 2.1),
+            RepeatingScheduleValue(startTime: .hours(10), value: 1.4),
+            RepeatingScheduleValue(startTime: .hours(18), value: 2.1),
+            RepeatingScheduleValue(startTime: .hours(20), value: 1.5)
+        ])!
+
+        XCTAssert(historyResolves(to: expected, referenceDateOffset: .hours(26)))
+    }
+
+    func testClampedPastOverride() {
+        recordOverride(beginningAt: .hours(-4), duration: .finite(.hours(8)), insulinNeedsScaleFactor: 1.5)
+
+        let expected = BasalRateSchedule(dailyItems: [
+            RepeatingScheduleValue(startTime: .hours(0), value: 1.8),
+            RepeatingScheduleValue(startTime: .hours(4), value: 1.2),
+            RepeatingScheduleValue(startTime: .hours(6), value: 1.4),
+            RepeatingScheduleValue(startTime: .hours(20), value: 1.0),
+            RepeatingScheduleValue(startTime: .hours(22), value: 1.5),
+        ])!
+
+        print(expected)
+
+        XCTAssert(historyResolves(to: expected, referenceDateOffset: .hours(6)))
+    }
+
+    func testCancelSequence() {
+        recordOverride(beginningAt: .hours(2), duration: .finite(.hours(8)), insulinNeedsScaleFactor: 1.5)
+        recordOverrideDisable(at: .hours(4))
+        recordOverride(beginningAt: .hours(7), duration: .finite(.hours(1)), insulinNeedsScaleFactor: 1.5)
+        let expected = BasalRateSchedule(dailyItems: [
+            RepeatingScheduleValue(startTime: .hours(0), value: 1.2),
+            RepeatingScheduleValue(startTime: .hours(2), value: 1.8),
+            RepeatingScheduleValue(startTime: .hours(4), value: 1.2),
+            RepeatingScheduleValue(startTime: .hours(6), value: 1.4),
+            RepeatingScheduleValue(startTime: .hours(7), value: 2.1),
+            RepeatingScheduleValue(startTime: .hours(8), value: 1.4),
+            RepeatingScheduleValue(startTime: .hours(20), value: 1.0)
+        ])!
+
+        XCTAssert(historyResolves(to: expected, referenceDateOffset: .hours(6)))
+    }
 }
